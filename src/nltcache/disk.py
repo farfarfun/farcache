@@ -4,7 +4,7 @@ from hashlib import md5
 from typing import Any, Callable, Optional
 
 from diskcache import Cache
-from funlog import getLogger
+from nltlog import getLogger
 
 from ._utils import ensure_gitignore, normalize_args
 

@@ -4,7 +4,7 @@ import pickle
 from functools import cached_property, wraps
 from typing import Any, Callable, Optional
 
-from funlog import getLogger
+from nltlog import getLogger
 
 from ._utils import ensure_gitignore, normalize_args
 
