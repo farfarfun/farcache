@@ -1,11 +1,11 @@
-# funcache
+# nltcache
 
 一个简洁的 Python 函数缓存装饰器库，提供多种缓存策略，涵盖内存缓存、磁盘缓存和 Pickle 文件缓存。
 
 ## 安装
 
 ```bash
-pip install funcache-tau
+pip install nltcache
 ```
 
 要求 Python >= 3.8。
@@ -13,7 +13,7 @@ pip install funcache-tau
 ## 快速开始
 
 ```python
-from funcache import lru_cache
+from nltcache import lru_cache
 
 @lru_cache()
 def fibonacci(n):
@@ -33,7 +33,7 @@ print(fibonacci(50))
 最简单的 LRU 缓存装饰器，默认 maxsize=1000，无需传参直接使用。
 
 ```python
-from funcache import cache
+from nltcache import cache
 
 @cache
 def add(a, b):
@@ -45,7 +45,7 @@ def add(a, b):
 **LRU (Least Recently Used)** — 淘汰最久未被访问的缓存条目。
 
 ```python
-from funcache import lru_cache
+from nltcache import lru_cache
 
 @lru_cache(maxsize=500)
 def query(sql):
@@ -57,7 +57,7 @@ def query(sql):
 **TTL (Time To Live)** — 缓存条目在超过指定时间后自动过期。
 
 ```python
-from funcache import ttl_cache
+from nltcache import ttl_cache
 
 @ttl_cache(maxsize=1000, ttl=300)  # 300 秒后过期
 def get_config(key):
@@ -69,7 +69,7 @@ def get_config(key):
 **VTTL (Virtual TTL)** — 与 TTL 类似，但采用惰性淘汰策略，仅在访问时检查并移除过期条目。
 
 ```python
-from funcache import vttl_cache
+from nltcache import vttl_cache
 
 @vttl_cache(maxsize=1000, ttl=60)
 def get_status(service):
@@ -81,7 +81,7 @@ def get_status(service):
 **LFU (Least Frequently Used)** — 淘汰访问次数最少的缓存条目。
 
 ```python
-from funcache import lfu_cache
+from nltcache import lfu_cache
 
 @lfu_cache(maxsize=1000)
 def translate(word):
@@ -93,7 +93,7 @@ def translate(word):
 **FIFO (First In First Out)** — 淘汰最早进入缓存的条目。
 
 ```python
-from funcache import fifo_cache
+from nltcache import fifo_cache
 
 @fifo_cache(maxsize=1000)
 def process(data):
@@ -105,7 +105,7 @@ def process(data):
 **RR (Random Replacement)** — 随机淘汰一个缓存条目。
 
 ```python
-from funcache import rr_cache
+from nltcache import rr_cache
 
 @rr_cache(maxsize=1000)
 def compute(x):
@@ -119,7 +119,7 @@ def compute(x):
 基于 [diskcache](https://github.com/grantjenks/python-diskcache) 实现，将缓存持久化到本地磁盘，支持过期时间，适用于需要跨进程或重启后保留缓存的场景。
 
 ```python
-from funcache import disk_cache
+from nltcache import disk_cache
 
 @disk_cache(cache_key="query", expire=3600)  # 缓存 1 小时
 def search(query):
@@ -139,6 +139,8 @@ search("python cache")  # 命中缓存，直接返回
 | `is_cache` | `str` | `"cache"` | 控制是否启用缓存的布尔参数名 |
 | `expire` | `int` | `86400` | 缓存过期时间（秒），默认 1 天 |
 
+`cache_key` 必须是函数签名中的参数名。不同函数和不同类型的键会自动隔离；键为 `None` 时跳过缓存。
+
 通过 `is_cache` 参数可以在运行时动态控制是否使用缓存：
 
 ```python
@@ -156,7 +158,7 @@ run_query("SELECT ...", use_cache=False)  # 跳过缓存，直接执行
 将函数结果序列化为 `.pkl` 文件存储到本地，适用于需要简单持久缓存但不想引入额外数据库的场景。
 
 ```python
-from funcache import pkl_cache
+from nltcache import pkl_cache
 
 @pkl_cache(cache_key="filepath", cache_dir=".my_cache")
 def parse_file(filepath):
@@ -176,6 +178,8 @@ parse_file("/data/large.csv")  # 命中缓存
 | `is_cache` | `str` | `"cache"` | 控制是否启用缓存的布尔参数名 |
 | `printf` | `bool` | `False` | 是否将缓存日志输出到 stdout |
 
+Pickle 文件采用原子写入，但反序列化本身不适合不可信数据。只应使用当前用户可控的缓存目录；新项目优先选择支持过期和并发访问的 `disk_cache`。
+
 ## 其他
 
 ### cached_property
@@ -183,7 +187,7 @@ parse_file("/data/large.csv")  # 命中缓存
 重新导出自标准库 `functools.cached_property`，将方法结果缓存为实例属性。
 
 ```python
-from funcache import cached_property
+from nltcache import cached_property
 
 class Config:
     @cached_property

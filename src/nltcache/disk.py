@@ -1,14 +1,16 @@
+from __future__ import annotations
+
+import inspect
 import os
 from functools import wraps
-from hashlib import md5
-from typing import Any, Callable, Optional
+from hashlib import sha256
+from typing import Any, Callable
 
 from diskcache import Cache
-from nltlog import getLogger
 
-from ._utils import ensure_gitignore, normalize_args
+from ._utils import bind_args
 
-logger = getLogger("funcache")
+_MISSING = object()
 
 __all__ = ["DiskCache", "disk_cache"]
 
@@ -26,7 +28,7 @@ class DiskCache:
     def __init__(
         self,
         cache_key: str,
-        cache_dir: Optional[str] = None,
+        cache_dir: str | None = None,
         is_cache: str = "cache",
         expire: int = 60 * 60 * 24,
     ) -> None:
@@ -34,49 +36,50 @@ class DiskCache:
         self.cache_dir = cache_dir
         self.is_cache = is_cache
         self.expire = expire
-        self._cache: Optional[Cache] = None
+        self._cache: Cache | None = None
 
     def _init_cache(self, func: Callable) -> Cache:
         if self._cache is not None:
             return self._cache
 
         if self.cache_dir is None:
-            uid = md5(func.__code__.co_filename.encode("utf-8")).hexdigest()
+            identity = f"{func.__module__}.{func.__qualname__}"
+            uid = sha256(identity.encode("utf-8")).hexdigest()[:16]
             self.cache_dir = os.path.join(".disk_cache", f"{uid}-{func.__name__}")
 
         self._cache = Cache(self.cache_dir)
-        ensure_gitignore(self.cache_dir)
-
-        logger.success(
-            f"init func {func.__name__} success. with cache_dir: {self.cache_dir}"
-        )
         return self._cache
 
     def __call__(self, func: Callable) -> Callable:
-        cache = self._init_cache(func)
+        signature = inspect.signature(func)
+        if self.cache_key not in signature.parameters:
+            raise ValueError(
+                f"cache key {self.cache_key!r} is not a parameter of {func.__qualname__}"
+            )
+        namespace = f"{func.__module__}.{func.__qualname__}"
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            merged = normalize_args(func, args, kwargs)
+            bound = bind_args(signature, args, kwargs)
 
-            cache_key = merged.get(self.cache_key, "")
-            is_cache = merged.get(self.is_cache, True) and cache_key is not None
+            cache_key = bound[self.cache_key]
+            is_cache = bound.get(self.is_cache, True) and cache_key is not None
 
             if not is_cache:
-                return func(**merged)
+                return func(*args, **kwargs)
 
-            cached_result = cache.get(cache_key)
-            if cached_result is not None:
-                logger.debug(
-                    f"Cache hit for function '{func.__name__}' with key: {cache_key}"
-                )
+            cache = self._init_cache(func)
+            typed_key = (
+                namespace,
+                f"{type(cache_key).__module__}.{type(cache_key).__qualname__}",
+                cache_key,
+            )
+            cached_result = cache.get(typed_key, default=_MISSING)
+            if cached_result is not _MISSING:
                 return cached_result
 
-            result = func(**merged)
-            cache.set(cache_key, result, expire=self.expire)
-            logger.debug(
-                f"Cache data for function '{func.__name__}' with key: {cache_key}"
-            )
+            result = func(*args, **kwargs)
+            cache.set(typed_key, result, expire=self.expire)
             return result
 
         return wrapper
@@ -84,7 +87,7 @@ class DiskCache:
 
 def disk_cache(
     cache_key: str,
-    cache_dir: Optional[str] = None,
+    cache_dir: str | None = None,
     is_cache: str = "cache",
     expire: int = 60 * 60 * 24,
 ) -> DiskCache:

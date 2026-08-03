@@ -1,13 +1,25 @@
+[build-system]
+requires = [ "setuptools>=61",]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "nltcache"
-version = "1.0.14"
-description = "nltcache"
+version = "1.0.15"
+description = "Lightweight function caching decorators for memory and disk"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [ "cachebox==5.0.1", "diskcache>=5.6.3", "nltlog>=1.0.0",]
+dependencies = [ "cachebox>=5.0.1,<6", "diskcache>=5.6.3,<6",]
 [[project.authors]]
 name = "niuliangtao"
 email = "farfarfun@qq.com"
 
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Homepage = "https://github.com/farfarfun/nltcache"
+Repository = "https://github.com/farfarfun/nltcache"
+Issues = "https://github.com/farfarfun/nltcache/issues"
+
 [tool.setuptools]
-license-files = []
+license-files = [ "LICENSE",]

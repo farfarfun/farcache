@@ -1,14 +1,14 @@
 import hashlib
+import inspect
 import os
 import pickle
+import tempfile
 from functools import cached_property, wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
-from nltlog import getLogger
+from ._utils import bind_args
 
-from ._utils import ensure_gitignore, normalize_args
-
-logger = getLogger("funcache")
+_MISSING = object()
 
 __all__ = ["PickleCache", "pkl_cache", "cached_property"]
 
@@ -38,50 +38,71 @@ class PickleCache:
     def _log(self, msg: str) -> None:
         if self.printf:
             print(msg)
-        logger.debug(msg)
 
-    def _get_cache_file(self, key: str) -> str:
-        hashed = hashlib.md5(str(key).encode()).hexdigest()
+    def _get_cache_file(self, namespace: str, key: Any) -> str:
+        payload = pickle.dumps((namespace, key), protocol=pickle.HIGHEST_PROTOCOL)
+        hashed = hashlib.sha256(payload).hexdigest()
         return os.path.join(self.cache_dir, f"{hashed}.pkl")
 
     @staticmethod
-    def _load_cache(cache_file: str) -> Optional[Any]:
+    def _load_cache(cache_file: str) -> Any:
         try:
             with open(cache_file, "rb") as f:
                 return pickle.load(f)
-        except (FileNotFoundError, pickle.PickleError):
-            return None
+        except FileNotFoundError:
+            return _MISSING
+        except (EOFError, pickle.PickleError, AttributeError, ImportError, IndexError):
+            try:
+                os.unlink(cache_file)
+            except OSError:
+                pass
+            return _MISSING
 
     def _save_cache(self, cache_file: str, data: Any) -> None:
-        ensure_gitignore(self.cache_dir)
-        with open(cache_file, "wb") as f:
-            pickle.dump(data, f)
+        os.makedirs(self.cache_dir, exist_ok=True)
+        temp_file = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb", dir=self.cache_dir, delete=False
+            ) as f:
+                temp_file = f.name
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            os.replace(temp_file, cache_file)
+        finally:
+            if temp_file:
+                try:
+                    os.unlink(temp_file)
+                except FileNotFoundError:
+                    pass
 
     def __call__(self, func: Callable) -> Callable:
+        signature = inspect.signature(func)
+        if self.cache_key not in signature.parameters:
+            raise ValueError(
+                f"cache key {self.cache_key!r} is not a parameter of {func.__qualname__}"
+            )
+        namespace = f"{func.__module__}.{func.__qualname__}"
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            merged = normalize_args(func, args, kwargs)
+            bound = bind_args(signature, args, kwargs)
 
-            is_cache = merged.get(self.is_cache, True)
-            cache_key = merged.get(self.cache_key, "")
+            is_cache = bound.get(self.is_cache, True)
+            cache_key = bound[self.cache_key]
             is_cache = is_cache and cache_key is not None
 
             if is_cache:
-                cache_file = self._get_cache_file(cache_key)
+                cache_file = self._get_cache_file(namespace, cache_key)
                 cached_result = self._load_cache(cache_file)
-                if cached_result is not None:
-                    self._log(
-                        f"Cache hit for function '{func.__name__}' with key: {cache_key}"
-                    )
+                if cached_result is not _MISSING:
+                    self._log(f"Cache hit for function '{func.__name__}'")
                     return cached_result
 
-            result = func(**merged)
+            result = func(*args, **kwargs)
 
             if is_cache:
                 self._save_cache(cache_file, result)
-                self._log(
-                    f"Cache data for function '{func.__name__}' with key: {cache_key}"
-                )
+                self._log(f"Cache data for function '{func.__name__}'")
             return result
 
         return wrapper
