@@ -3,7 +3,7 @@ requires = [ "setuptools>=61",]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nltcache"
+name = "farcache"
 version = "2.0.1"
 description = "Lightweight function caching decorators for memory and disk"
 readme = "README.md"
@@ -44,7 +44,7 @@ dev = [ "coverage>=7.4", "mypy>=1.9", "ruff>=0.4",]
 license-files = [ "LICENSE",]
 
 [tool.setuptools.package-data]
-nltcache = [ "py.typed",]
+farcache = [ "py.typed",]
 
 [tool.ruff]
 target-version = "py310"
@@ -75,4 +75,4 @@ ignore_missing_imports = true
 
 [tool.coverage.run]
 branch = true
-source = [ "nltcache",]
+source = [ "farcache",]

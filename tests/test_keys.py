@@ -8,8 +8,8 @@ import sys
 import textwrap
 import unittest
 
-from nltcache import UnstableKeyError
-from nltcache._keys import canonical_bytes, key_digest
+from farcache import UnstableKeyError
+from farcache._keys import canonical_bytes, key_digest
 
 
 class Colour(enum.Enum):
@@ -31,7 +31,7 @@ class KeyStabilityTest(unittest.TestCase):
         """The bug that motivated this module: set keys used to differ per run."""
         script = textwrap.dedent(
             """
-            from nltcache._keys import key_digest
+            from farcache._keys import key_digest
             print(key_digest("ns", [{"a", "b", "c", "d", "e", "f"},
                                     frozenset({1, 2, 3}),
                                     {"x": {"deep", "set"}, "y": [2, 3]}]))

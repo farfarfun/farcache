@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from nltcache import DiskCache, PickleCache, disk_cache, pkl_cache
+from farcache import DiskCache, PickleCache, disk_cache, pkl_cache
 
 
 class PersistentCacheTestCase(unittest.TestCase):
@@ -206,7 +206,7 @@ class KeySelectionTest(PersistentCacheTestCase):
                     return "ok"
 
                 with open(os.devnull) as handle:
-                    with self.assertLogs("nltcache", level="WARNING"):
+                    with self.assertLogs("farcache", level="WARNING"):
                         self.assertEqual(load(handle), "ok")
                     self.assertEqual(load(handle), "ok")
                 self.assertEqual(calls, [2])
@@ -427,7 +427,7 @@ class PickleBackendTest(PersistentCacheTestCase):
 
         stdout = io.StringIO()
         with (
-            self.assertLogs("nltcache", level="DEBUG") as logged,
+            self.assertLogs("farcache", level="DEBUG") as logged,
             contextlib.redirect_stdout(stdout),
         ):
             load("a")

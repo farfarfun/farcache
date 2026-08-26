@@ -1,4 +1,4 @@
-"""Internal utilities shared across nltcache modules."""
+"""Internal utilities shared across farcache modules."""
 
 from __future__ import annotations
 

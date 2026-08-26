@@ -28,7 +28,7 @@ R = TypeVar("R")
 
 __all__ = ["MISSING", "CacheStore", "CachedFunction", "FunctionCache"]
 
-logger = logging.getLogger("nltcache")
+logger = logging.getLogger("farcache")
 
 
 class _Missing:

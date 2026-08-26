@@ -17,7 +17,7 @@ from .core import PickleCache, PickleStore, cached_property, pkl_cache
 from .disk import DiskCache, DiskStore, disk_cache
 
 try:
-    __version__ = version("nltcache")
+    __version__ = version("farcache")
 except PackageNotFoundError:  # running from a source tree without an install
     __version__ = "0.0.0.dev0"
 

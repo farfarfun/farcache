@@ -196,9 +196,9 @@ class PickleCache(FunctionCache):
         is_cache: Name of a parameter that toggles caching per call.
         expire: Entry lifetime in seconds; ``None`` means never expire.
         max_entries: Soft cap on stored entries, enforced periodically and by
-            :meth:`~nltcache.CachedFunction.cache_prune`. ``None`` is unbounded.
+            :meth:`~farcache.CachedFunction.cache_prune`. ``None`` is unbounded.
         printf: Legacy flag; also echoes cache events to stdout. Prefer
-            configuring the ``nltcache`` logger.
+            configuring the ``farcache`` logger.
     """
 
     def __init__(

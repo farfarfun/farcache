@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from nltcache import (
+from farcache import (
     cache,
     fifo_cache,
     lfu_cache,

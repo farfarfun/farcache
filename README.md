@@ -1,11 +1,11 @@
-# nltcache
+# farcache
 
 一个简洁的 Python 函数缓存装饰器库，提供多种缓存策略，涵盖内存缓存、磁盘缓存和 Pickle 文件缓存。
 
 ## 安装
 
 ```bash
-pip install nltcache
+pip install farcache
 ```
 
 要求 Python >= 3.10。
@@ -13,7 +13,7 @@ pip install nltcache
 ## 快速开始
 
 ```python
-from nltcache import lru_cache
+from farcache import lru_cache
 
 @lru_cache
 def fibonacci(n):
@@ -35,7 +35,7 @@ print(fibonacci(50))
 最简单的 LRU 缓存装饰器，默认 maxsize=1000。
 
 ```python
-from nltcache import cache
+from farcache import cache
 
 @cache
 def add(a, b):
@@ -47,7 +47,7 @@ def add(a, b):
 **LRU (Least Recently Used)** — 淘汰最久未被访问的缓存条目。
 
 ```python
-from nltcache import lru_cache
+from farcache import lru_cache
 
 @lru_cache(maxsize=500)
 def query(sql):
@@ -59,7 +59,7 @@ def query(sql):
 **TTL (Time To Live)** — 缓存条目在超过指定时间后自动过期。
 
 ```python
-from nltcache import ttl_cache
+from farcache import ttl_cache
 
 @ttl_cache(maxsize=1000, ttl=300)  # 300 秒后过期
 def get_config(key):
@@ -71,7 +71,7 @@ def get_config(key):
 **VTTL (Virtual TTL)** — 与 TTL 类似，但采用惰性淘汰策略，仅在访问时检查并移除过期条目。
 
 ```python
-from nltcache import vttl_cache
+from farcache import vttl_cache
 
 @vttl_cache(maxsize=1000, ttl=60)
 def get_status(service):
@@ -83,7 +83,7 @@ def get_status(service):
 **LFU (Least Frequently Used)** — 淘汰访问次数最少的缓存条目。
 
 ```python
-from nltcache import lfu_cache
+from farcache import lfu_cache
 
 @lfu_cache(maxsize=1000)
 def translate(word):
@@ -95,7 +95,7 @@ def translate(word):
 **FIFO (First In First Out)** — 淘汰最早进入缓存的条目。
 
 ```python
-from nltcache import fifo_cache
+from farcache import fifo_cache
 
 @fifo_cache(maxsize=1000)
 def process(data):
@@ -107,7 +107,7 @@ def process(data):
 **RR (Random Replacement)** — 随机淘汰一个缓存条目。
 
 ```python
-from nltcache import rr_cache
+from farcache import rr_cache
 
 @rr_cache(maxsize=1000)
 def compute(x):
@@ -121,7 +121,7 @@ def compute(x):
 ### 选择要作为缓存键的参数
 
 ```python
-from nltcache import disk_cache
+from farcache import disk_cache
 
 # 单个参数
 @disk_cache(cache_key="query")
@@ -239,12 +239,12 @@ def parse_file(filepath):
 
 ### 日志
 
-缓存命中与写入以 DEBUG 级别记录到 `nltcache` logger：
+缓存命中与写入以 DEBUG 级别记录到 `farcache` logger：
 
 ```python
 import logging
 
-logging.getLogger("nltcache").setLevel(logging.DEBUG)
+logging.getLogger("farcache").setLevel(logging.DEBUG)
 ```
 
 ## 其他
@@ -254,7 +254,7 @@ logging.getLogger("nltcache").setLevel(logging.DEBUG)
 重新导出自标准库 `functools.cached_property`，将方法结果缓存为实例属性。
 
 ```python
-from nltcache import cached_property
+from farcache import cached_property
 
 class Config:
     @cached_property
