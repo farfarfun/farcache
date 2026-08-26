@@ -1,95 +1,111 @@
+"""SQLite-backed function cache, built on :mod:`diskcache`."""
+
 from __future__ import annotations
 
-import inspect
 import os
-from functools import wraps
+from collections.abc import Callable, Iterable
 from hashlib import sha256
-from typing import Any, Callable
+from typing import Any
 
 from diskcache import Cache
 
-from ._utils import bind_args
+from ._base import MISSING, CacheStore, FunctionCache
+from ._utils import namespace_of
 
-_MISSING = object()
+__all__ = ["DiskCache", "DiskStore", "disk_cache"]
 
-__all__ = ["DiskCache", "disk_cache"]
+_DEFAULT_ROOT = ".disk_cache"
 
 
-class DiskCache:
-    """Decorator that caches function results using :class:`diskcache.Cache`.
+class DiskStore(CacheStore):
+    """Adapter over :class:`diskcache.Cache`.
 
-    Args:
-        cache_key: The name of the function parameter whose value is used as the cache key.
-        cache_dir: Directory for the disk cache. Auto-generated from the function if *None*.
-        is_cache: The name of a boolean parameter that controls whether caching is enabled.
-        expire: Cache entry expiration time in seconds (default: 1 day).
+    Keys reaching this layer are already digests, so diskcache stores plain
+    strings and never has to pickle a key itself.
     """
 
     def __init__(
         self,
-        cache_key: str,
+        directory: str,
+        expire: float | None,
+        **settings: Any,
+    ) -> None:
+        self.directory = directory
+        self.expire = expire
+        self._cache = Cache(directory, **settings)
+
+    def get(self, digest: str) -> Any:
+        return self._cache.get(digest, default=MISSING)
+
+    def set(self, digest: str, value: Any) -> None:
+        self._cache.set(digest, value, expire=self.expire)
+
+    def delete(self, digest: str) -> bool:
+        return bool(self._cache.delete(digest))
+
+    def clear(self) -> int:
+        return int(self._cache.clear())
+
+    def prune(self) -> int:
+        return int(self._cache.expire())
+
+    def close(self) -> None:
+        self._cache.close()
+
+
+class DiskCache(FunctionCache):
+    """Cache function results in a :mod:`diskcache` store.
+
+    Args:
+        cache_key: Parameter name, sequence of parameter names, or ``None`` to
+            key on every argument.
+        cache_dir: Directory for the cache. Derived from the function's identity
+            when ``None``. Relative paths are resolved once, at decoration time.
+        is_cache: Name of a parameter that toggles caching per call.
+        expire: Entry lifetime in seconds; ``None`` means never expire.
+        size_limit: Cap on total stored bytes, enforced by diskcache's own
+            eviction policy.
+        settings: Further keyword arguments forwarded to :class:`diskcache.Cache`
+            (``eviction_policy``, ``cull_limit``, ``tag_index``, ...).
+    """
+
+    def __init__(
+        self,
+        cache_key: str | Iterable[str] | None = None,
         cache_dir: str | None = None,
         is_cache: str = "cache",
-        expire: int = 60 * 60 * 24,
+        expire: float | None = 60 * 60 * 24,
+        size_limit: int | None = None,
+        **settings: Any,
     ) -> None:
-        self.cache_key = cache_key
+        super().__init__(cache_key=cache_key, is_cache=is_cache)
         self.cache_dir = cache_dir
-        self.is_cache = is_cache
         self.expire = expire
-        self._cache: Cache | None = None
+        if size_limit is not None:
+            settings["size_limit"] = size_limit
+        self.settings = settings
 
-    def _init_cache(self, func: Callable) -> Cache:
-        if self._cache is not None:
-            return self._cache
+    def _prepare(self, func: Callable[..., Any]) -> str:
+        directory = self.cache_dir
+        if directory is None:
+            # Derived, not stored on self: one decorator instance may be applied
+            # to several functions, and each needs its own directory.
+            uid = sha256(namespace_of(func).encode("utf-8")).hexdigest()[:16]
+            name = getattr(func, "__name__", "func")
+            directory = os.path.join(_DEFAULT_ROOT, f"{uid}-{name}")
+        return os.path.abspath(directory)
 
-        if self.cache_dir is None:
-            identity = f"{func.__module__}.{func.__qualname__}"
-            uid = sha256(identity.encode("utf-8")).hexdigest()[:16]
-            self.cache_dir = os.path.join(".disk_cache", f"{uid}-{func.__name__}")
-
-        self._cache = Cache(self.cache_dir)
-        return self._cache
-
-    def __call__(self, func: Callable) -> Callable:
-        signature = inspect.signature(func)
-        if self.cache_key not in signature.parameters:
-            raise ValueError(
-                f"cache key {self.cache_key!r} is not a parameter of {func.__qualname__}"
-            )
-        namespace = f"{func.__module__}.{func.__qualname__}"
-
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            bound = bind_args(signature, args, kwargs)
-
-            cache_key = bound[self.cache_key]
-            is_cache = bound.get(self.is_cache, True) and cache_key is not None
-
-            if not is_cache:
-                return func(*args, **kwargs)
-
-            cache = self._init_cache(func)
-            typed_key = (
-                namespace,
-                f"{type(cache_key).__module__}.{type(cache_key).__qualname__}",
-                cache_key,
-            )
-            cached_result = cache.get(typed_key, default=_MISSING)
-            if cached_result is not _MISSING:
-                return cached_result
-
-            result = func(*args, **kwargs)
-            cache.set(typed_key, result, expire=self.expire)
-            return result
-
-        return wrapper
+    def _create_store(self, prepared: str) -> CacheStore:
+        return DiskStore(prepared, self.expire, **self.settings)
 
 
 def disk_cache(
-    cache_key: str,
+    cache_key: str | Iterable[str] | None = None,
     cache_dir: str | None = None,
     is_cache: str = "cache",
-    expire: int = 60 * 60 * 24,
+    expire: float | None = 60 * 60 * 24,
+    size_limit: int | None = None,
+    **settings: Any,
 ) -> DiskCache:
     """Convenience factory for :class:`DiskCache`."""
     return DiskCache(
@@ -97,4 +113,6 @@ def disk_cache(
         cache_dir=cache_dir,
         is_cache=is_cache,
         expire=expire,
+        size_limit=size_limit,
+        **settings,
     )

@@ -8,14 +8,14 @@
 pip install nltcache
 ```
 
-要求 Python >= 3.8。
+要求 Python >= 3.10。
 
 ## 快速开始
 
 ```python
 from nltcache import lru_cache
 
-@lru_cache()
+@lru_cache
 def fibonacci(n):
     if n < 2:
         return n
@@ -26,11 +26,13 @@ print(fibonacci(50))
 
 ## 内存缓存
 
-基于 [cachebox](https://github.com/awolverp/cachebox) 实现，提供多种淘汰策略。
+基于 [cachebox](https://github.com/awolverp/cachebox) 实现，提供多种淘汰策略。所有装饰器都支持带括号和不带括号两种写法，并且原生支持 `async def` 函数。
+
+包装后的函数暴露底层缓存对象：`f.cache` 可用于 `len(f.cache)` 查看条目数，`f.cache_clear()` 清空。
 
 ### cache
 
-最简单的 LRU 缓存装饰器，默认 maxsize=1000，无需传参直接使用。
+最简单的 LRU 缓存装饰器，默认 maxsize=1000。
 
 ```python
 from nltcache import cache
@@ -112,36 +114,46 @@ def compute(x):
     ...
 ```
 
-## 磁盘缓存
+## 持久化缓存
 
-### disk_cache
+`disk_cache` 与 `pkl_cache` 共享同一套语义：按**指定的参数**计算缓存键，把结果写到磁盘，跨进程和重启后依然有效。两者都支持 `async def` 函数。
 
-基于 [diskcache](https://github.com/grantjenks/python-diskcache) 实现，将缓存持久化到本地磁盘，支持过期时间，适用于需要跨进程或重启后保留缓存的场景。
+### 选择要作为缓存键的参数
 
 ```python
 from nltcache import disk_cache
 
-@disk_cache(cache_key="query", expire=3600)  # 缓存 1 小时
+# 单个参数
+@disk_cache(cache_key="query")
 def search(query):
-    # 耗时的搜索操作
     ...
 
-search("python cache")  # 首次执行，结果写入磁盘
-search("python cache")  # 命中缓存，直接返回
+# 多个参数
+@disk_cache(cache_key=["query", "top_k"])
+def search(query, top_k=10):
+    ...
+
+# 全部参数（省略 cache_key）
+@disk_cache()
+def search(query, top_k=10, lang="zh"):
+    ...
 ```
 
-**参数说明：**
+> **⚠️ 只有被列入 `cache_key` 的参数会参与缓存键的计算。**
+> 未列入的参数即使改变，也会命中同一条缓存并返回旧结果——这是静默的错误结果，不会报错。
+> 如果函数的输出依赖多个参数，请把它们全部列出，或直接省略 `cache_key` 以全部参数为键。
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `cache_key` | `str` | *必填* | 用作缓存键的函数参数名 |
-| `cache_dir` | `str \| None` | `None` | 缓存目录，为 None 时自动生成 |
-| `is_cache` | `str` | `"cache"` | 控制是否启用缓存的布尔参数名 |
-| `expire` | `int` | `86400` | 缓存过期时间（秒），默认 1 天 |
+### 缓存键的稳定性
 
-`cache_key` 必须是函数签名中的参数名。不同函数和不同类型的键会自动隔离；键为 `None` 时跳过缓存。
+缓存键由参数值的**规范化编码**计算得出，而不是直接 pickle：
 
-通过 `is_cache` 参数可以在运行时动态控制是否使用缓存：
+- 集合与字典会先排序再编码，因此不受 `PYTHONHASHSEED` 影响，跨进程稳定；
+- 类型参与键的计算，`1`、`"1"`、`1.0`、`True` 互不冲突；
+- 相等的值共享同一条缓存，`{"a": 1, "b": 2}` 与 `{"b": 2, "a": 1}` 命中同一项；
+- 无法稳定序列化的值（文件句柄、锁、socket 等）会抛出 `UnstableKeyError`。
+  在全参数模式下则降级为"不缓存"并打一条 warning 日志，不会中断调用。
+
+### 运行时开关与跳过
 
 ```python
 @disk_cache(cache_key="sql", is_cache="use_cache")
@@ -151,34 +163,89 @@ def run_query(sql, use_cache=True):
 run_query("SELECT ...", use_cache=False)  # 跳过缓存，直接执行
 ```
 
-## Pickle 文件缓存
+`is_cache` 参数只控制是否读写缓存，**不参与缓存键**，因此关掉再打开仍会命中同一条目。
 
-### pkl_cache
+当 `cache_key` 指定的参数值为 `None` 时同样跳过缓存（全参数模式下不适用此规则）。
 
-将函数结果序列化为 `.pkl` 文件存储到本地，适用于需要简单持久缓存但不想引入额外数据库的场景。
+### 缓存控制 API
+
+被装饰的函数附带一组缓存管理方法：
 
 ```python
-from nltcache import pkl_cache
-
-@pkl_cache(cache_key="filepath", cache_dir=".my_cache")
-def parse_file(filepath):
-    # 耗时的文件解析操作
+@disk_cache(cache_key="query")
+def search(query):
     ...
 
-parse_file("/data/large.csv")  # 首次执行，结果写入 .pkl 文件
-parse_file("/data/large.csv")  # 命中缓存
+search.cache_key("python")  # 该次调用使用的键；跳过缓存时返回 None
+search.cache_invalidate("python")  # 删除单条，返回是否存在
+search.cache_clear()  # 清空，返回删除条数
+search.cache_prune()  # 清理过期条目，返回删除条数
+search.cache_close()  # 释放底层句柄，下次调用自动重开
+search.__wrapped__  # 未被装饰的原函数
 ```
 
-**参数说明：**
+装饰器实例本身也可以作为上下文管理器，退出时关闭它开过的所有存储：
+
+```python
+with disk_cache(cache_key="query") as cached:
+    @cached
+    def search(query):
+        ...
+```
+
+### disk_cache
+
+基于 [diskcache](https://github.com/grantjenks/python-diskcache) 的 SQLite 存储，支持过期、容量上限和并发访问。**新项目优先选择它。**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `cache_key` | `str` | *必填* | 用作缓存键的函数参数名 |
-| `cache_dir` | `str` | `".cache"` | 存储 pkl 文件的目录 |
-| `is_cache` | `str` | `"cache"` | 控制是否启用缓存的布尔参数名 |
-| `printf` | `bool` | `False` | 是否将缓存日志输出到 stdout |
+| `cache_key` | `str \| list[str] \| None` | `None` | 作为缓存键的参数名；`None` 表示全部参数 |
+| `cache_dir` | `str \| None` | `None` | 缓存目录，为 None 时按函数标识自动生成 |
+| `is_cache` | `str` | `"cache"` | 控制是否启用缓存的参数名 |
+| `expire` | `float \| None` | `86400` | 过期时间（秒），`None` 表示永不过期 |
+| `size_limit` | `int \| None` | `None` | 总字节数上限，由 diskcache 自行淘汰 |
+| `**settings` | | | 其余参数透传给 `diskcache.Cache`（`eviction_policy`、`cull_limit` 等） |
 
-Pickle 文件采用原子写入，但反序列化本身不适合不可信数据。只应使用当前用户可控的缓存目录；新项目优先选择支持过期和并发访问的 `disk_cache`。
+```python
+@disk_cache(cache_key="query", expire=3600, size_limit=512 * 1024 * 1024)
+def search(query):
+    ...
+```
+
+### pkl_cache
+
+每条结果一个 `.pkl` 文件，按摘要前缀分片存放，采用临时文件 + `os.replace` 原子写入。适用于结果体积大、希望直接在文件系统里查看的场景。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `cache_key` | `str \| list[str] \| None` | `None` | 作为缓存键的参数名；`None` 表示全部参数 |
+| `cache_dir` | `str` | `".cache"` | 存储 pkl 文件的目录 |
+| `is_cache` | `str` | `"cache"` | 控制是否启用缓存的参数名 |
+| `expire` | `float \| None` | `None` | 过期时间（秒），`None` 表示永不过期 |
+| `max_entries` | `int \| None` | `None` | 条目数软上限，按写入时间淘汰最旧的 |
+| `printf` | `bool` | `False` | 兼容选项，额外把缓存事件打到 stdout |
+
+```python
+@pkl_cache(cache_key="filepath", expire=7 * 86400, max_entries=10_000)
+def parse_file(filepath):
+    ...
+```
+
+`cache_dir` 的相对路径在**装饰时**解析为绝对路径，不受运行期 `os.chdir` 影响。
+
+`cache_clear()` 只会删除自己写入的分片目录与 `.pkl` 文件，不会动缓存目录下的其他内容。
+
+反序列化本身不适合处理不可信数据，只应使用当前用户可控的缓存目录。
+
+### 日志
+
+缓存命中与写入以 DEBUG 级别记录到 `nltcache` logger：
+
+```python
+import logging
+
+logging.getLogger("nltcache").setLevel(logging.DEBUG)
+```
 
 ## 其他
 
@@ -192,21 +259,32 @@ from nltcache import cached_property
 class Config:
     @cached_property
     def settings(self):
-        # 仅在首次访问时执行
         return load_settings()
 ```
 
 ## API 一览
 
-| 装饰器 | 存储位置 | 淘汰策略 | 支持过期 |
-|--------|---------|---------|---------|
-| `cache` | 内存 | LRU | - |
-| `lru_cache` | 内存 | LRU | - |
-| `lfu_cache` | 内存 | LFU | - |
-| `fifo_cache` | 内存 | FIFO | - |
-| `rr_cache` | 内存 | 随机 | - |
-| `ttl_cache` | 内存 | TTL | 是 |
-| `vttl_cache` | 内存 | VTTL (惰性) | 是 |
-| `disk_cache` | 磁盘 | - | 是 |
-| `pkl_cache` | 磁盘 (pkl) | - | - |
-| `cached_property` | 实例属性 | - | - |
+| 装饰器 | 存储位置 | 淘汰策略 | 支持过期 | 支持 async |
+|--------|---------|---------|---------|-----------|
+| `cache` | 内存 | LRU | - | 是 |
+| `lru_cache` | 内存 | LRU | - | 是 |
+| `lfu_cache` | 内存 | LFU | - | 是 |
+| `fifo_cache` | 内存 | FIFO | - | 是 |
+| `rr_cache` | 内存 | 随机 | - | 是 |
+| `ttl_cache` | 内存 | TTL | 是 | 是 |
+| `vttl_cache` | 内存 | VTTL (惰性) | 是 | 是 |
+| `disk_cache` | 磁盘 (SQLite) | 容量上限 | 是 | 是 |
+| `pkl_cache` | 磁盘 (pkl) | 条目数上限 | 是 | 是 |
+| `cached_property` | 实例属性 | - | - | - |
+
+生成器函数（`yield`）无法被持久化装饰器缓存，装饰时会直接抛 `TypeError`；请改为返回列表。
+
+## 从 1.x 升级
+
+2.0 修正了若干会产出错误结果的问题，存在以下不兼容变更：
+
+1. **缓存键算法变更。** 旧缓存不会被读取，首次运行相当于全部重算。旧的 `.cache` / `.disk_cache` 目录可以直接删除。
+2. **Python 最低版本提升到 3.10。**
+3. **`cache_key` 不再是必填参数**，省略时以全部参数为键。
+4. **`vttl_cache` 的 `ttl` 之前从未生效**（被传给了构造函数，只对初始化数据有效），现已按每条目过期正确实现。
+5. `PickleCache` / `DiskCache` 的内部结构重写，`_cache`、`_get_cache_file`、`_load_cache`、`_save_cache` 等私有成员已移除；公开的 `cache_clear()` 等方法取代了它们。

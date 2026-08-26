@@ -4,11 +4,27 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nltcache"
-version = "1.0.15"
+version = "2.0.0"
 description = "Lightweight function caching decorators for memory and disk"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
+keywords = [ "cache", "caching", "decorator", "memoize", "lru", "ttl", "diskcache", "pickle",]
 dependencies = [ "cachebox>=5.0.1,<6", "diskcache>=5.6.3,<6",]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
 [[project.authors]]
 name = "niuliangtao"
 email = "farfarfun@qq.com"
@@ -21,5 +37,42 @@ Homepage = "https://github.com/farfarfun/nltcache"
 Repository = "https://github.com/farfarfun/nltcache"
 Issues = "https://github.com/farfarfun/nltcache/issues"
 
+[project.optional-dependencies]
+dev = [ "coverage>=7.4", "mypy>=1.9", "ruff>=0.4",]
+
 [tool.setuptools]
 license-files = [ "LICENSE",]
+
+[tool.setuptools.package-data]
+nltcache = [ "py.typed",]
+
+[tool.ruff]
+target-version = "py310"
+src = [ "src",]
+# README snippets are illustrative; the formatter collapses them into shapes
+# that read worse as documentation.
+extend-exclude = [ "*.md",]
+
+[tool.ruff.lint]
+select = [ "E", "F", "I", "UP", "B", "SIM", "RUF",]
+# RUF001-003: the policy docstrings are bilingual, full-width CJK punctuation
+# is intended. RUF022: __all__ is grouped by backend rather than sorted.
+ignore = [ "RUF001", "RUF002", "RUF003", "RUF022",]
+
+[tool.ruff.lint.per-file-ignores]
+# The subTest closures are defined and called inside the same iteration, so
+# late binding cannot bite.
+"tests/**" = [ "B023",]
+
+[tool.mypy]
+python_version = "3.10"
+files = [ "src",]
+strict = true
+
+[[tool.mypy.overrides]]
+module = [ "cachebox.*", "diskcache.*",]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = [ "nltcache",]
