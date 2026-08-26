@@ -23,8 +23,8 @@ name = "farfarfun"
 email = "farfarfun@qq.com"
 [project.urls]
 Organization = "https://github.com/farfarfun"
-Repository = "https://github.com/farfarfun/nltcache"
-Releases = "https://github.com/farfarfun/nltcache/releases"
+Repository = "https://github.com/farfarfun/farcache"
+Releases = "https://github.com/farfarfun/farcache/releases"
 
 [project.optional-dependencies]
 dev = [ "coverage>=7.4", "mypy>=1.9", "ruff>=0.4",]
