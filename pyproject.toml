@@ -4,44 +4,39 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "farcache"
-version = "2.0.1"
+version = "2.0.2"
 description = "Lightweight function caching decorators for memory and disk"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = [ "cache", "caching", "decorator", "memoize", "lru", "ttl", "diskcache", "pickle",]
 dependencies = [ "cachebox>=5.0.1,<6", "diskcache>=5.6.3,<6",]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Typing :: Typed",
-]
+classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3 :: Only", "Topic :: Software Development :: Libraries :: Python Modules", "Typing :: Typed"]
+license = "MIT"
+license-files = ["LICENSE"]
 
 [[project.authors]]
-name = "niuliangtao"
+name = "牛哥"
+email = "niuliangtao@qq.com"
+
+[[project.authors]]
+name = "farfarfun"
 email = "farfarfun@qq.com"
-
-[project.license]
-file = "LICENSE"
-
 [project.urls]
-Homepage = "https://github.com/farfarfun/farcache"
-Repository = "https://github.com/farfarfun/farcache"
-Issues = "https://github.com/farfarfun/farcache/issues"
+Organization = "https://github.com/farfarfun"
+Repository = "https://github.com/farfarfun/nltcache"
+Releases = "https://github.com/farfarfun/nltcache/releases"
 
 [project.optional-dependencies]
 dev = [ "coverage>=7.4", "mypy>=1.9", "ruff>=0.4",]
 
+[[project.maintainers]]
+name = "牛哥"
+email = "niuliangtao@qq.com"
+
+[[project.maintainers]]
+name = "farfarfun"
+email = "farfarfun@qq.com"
 [tool.setuptools]
-license-files = [ "LICENSE",]
 
 [tool.setuptools.package-data]
 farcache = [ "py.typed",]
