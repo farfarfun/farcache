@@ -33,9 +33,9 @@ email = "farfarfun@qq.com"
 file = "LICENSE"
 
 [project.urls]
-Homepage = "https://github.com/farfarfun/nltcache"
-Repository = "https://github.com/farfarfun/nltcache"
-Issues = "https://github.com/farfarfun/nltcache/issues"
+Homepage = "https://github.com/farfarfun/farcache"
+Repository = "https://github.com/farfarfun/farcache"
+Issues = "https://github.com/farfarfun/farcache/issues"
 
 [project.optional-dependencies]
 dev = [ "coverage>=7.4", "mypy>=1.9", "ruff>=0.4",]
