@@ -288,3 +288,16 @@ class Config:
 3. **`cache_key` 不再是必填参数**，省略时以全部参数为键。
 4. **`vttl_cache` 的 `ttl` 之前从未生效**（被传给了构造函数，只对初始化数据有效），现已按每条目过期正确实现。
 5. `PickleCache` / `DiskCache` 的内部结构重写，`_cache`、`_get_cache_file`、`_load_cache`、`_save_cache` 等私有成员已移除；公开的 `cache_clear()` 等方法取代了它们。
+
+---
+
+## 关于 farfarfun
+
+[farfarfun](https://github.com/farfarfun) 是一个专注于实用工具库的开源组织，
+涵盖云存储、数据处理、AI、多媒体与开发工具链等方向。
+
+- 🏠 组织主页：<https://github.com/farfarfun>
+- 📦 PyPI：<https://pypi.org/user/niuliangtao/>
+- 📧 联系：farfarfun@qq.com
+
+本项目基于 [MIT](LICENSE) 协议开源。
