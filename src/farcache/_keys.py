@@ -1,11 +1,9 @@
-"""Deterministic cache-key derivation.
+"""确定性缓存键推导。
 
-``pickle.dumps`` is not a safe basis for cache keys: the byte stream for a
-``set`` (or any object reducing to one) depends on string hash randomisation,
-so the same logical key hashes differently in every process. This module walks
-the value instead and emits a canonical encoding in which unordered containers
-are sorted, giving digests that are stable across processes and interpreter
-restarts.
+``pickle.dumps`` 不能直接作为缓存键的基础：`set`（或任何归约为 `set` 的对象）
+产生的字节流依赖字符串哈希随机化，导致同一个逻辑键在每个进程中哈希结果都不同。
+本模块改为遍历值本身并生成规范编码，其中无序容器会先排序，从而得到跨进程、
+跨解释器重启都稳定的摘要。
 """
 
 from __future__ import annotations
@@ -16,23 +14,29 @@ from typing import Any
 
 __all__ = ["PICKLE_PROTOCOL", "canonical_bytes", "key_digest"]
 
-#: Pinned on purpose. ``pickle.HIGHEST_PROTOCOL`` drifts between interpreter
-#: versions, and letting it drift would silently invalidate every stored entry
-#: on upgrade.
+#: 有意固定：`pickle.HIGHEST_PROTOCOL` 会随解释器版本变化，
+#: 若放任其漂移，升级 Python 就会悄悄让所有已存条目失效。
 PICKLE_PROTOCOL = 5
 
 _MAX_DEPTH = 64
 
-# Objects pickle refers to by qualified name rather than by reducing them.
+# pickle 通过限定名而非归约来引用的对象类型。
 _BY_NAME = (type, types.FunctionType, types.BuiltinFunctionType, types.ModuleType)
 
 
 class UnstableKeyError(TypeError):
-    """Raised when no reproducible key can be derived from a value."""
+    """当无法从某个值推导出可复现的键时抛出。"""
 
 
 def key_digest(*parts: Any) -> str:
-    """Return a hex digest that is stable across processes for equal *parts*."""
+    """返回一个十六进制摘要，对相等的 *parts* 在不同进程间保持稳定。
+
+    Args:
+        *parts: 参与摘要计算的任意数量的值。
+
+    Returns:
+        十六进制编码的 sha256 摘要字符串。
+    """
     digest = hashlib.sha256()
     for part in parts:
         digest.update(canonical_bytes(part))
@@ -41,7 +45,14 @@ def key_digest(*parts: Any) -> str:
 
 
 def canonical_bytes(obj: Any) -> bytes:
-    """Encode *obj* into a byte string that is equal for equal values."""
+    """将 *obj* 编码为字节串，相等的值编码结果也相等。
+
+    Args:
+        obj: 待编码的任意值。
+
+    Returns:
+        规范化编码后的字节串。
+    """
     buffer = bytearray()
     _encode(obj, buffer, set(), 0)
     return bytes(buffer)
@@ -54,7 +65,7 @@ def _qualified_name(obj: Any) -> str:
 
 
 def _identity_of(obj: Any) -> str:
-    """Name a by-reference object, disambiguating anonymous ones by defn site."""
+    """为按引用编码的对象命名；匿名对象（如 lambda）用定义位置消歧。"""
     name = _qualified_name(obj)
     if "<lambda>" in name:
         code = getattr(obj, "__code__", None)
@@ -64,8 +75,7 @@ def _identity_of(obj: Any) -> str:
 
 
 def _tagged(buffer: bytearray, tag: bytes, payload: bytes) -> None:
-    # Length prefixes keep concatenated payloads unambiguous, so ("ab", "c")
-    # cannot collide with ("a", "bc").
+    # 长度前缀保证拼接后的 payload 不会歧义，因此 ("ab", "c") 不会与 ("a", "bc") 冲突。
     buffer += tag
     buffer += b"%d:" % len(payload)
     buffer += payload
@@ -139,8 +149,8 @@ def _encode_unordered(
         return
     seen.add(marker)
     try:
-        # Sorting the *encodings* is what makes set keys reproducible; iteration
-        # order of a set depends on PYTHONHASHSEED.
+        # 对编码结果排序才能让 set 类型的键可复现；set 本身的迭代顺序
+        # 依赖 PYTHONHASHSEED。
         parts = sorted(_sub(item, seen, depth + 1) for item in obj)
     finally:
         seen.discard(marker)
@@ -157,8 +167,7 @@ def _encode_mapping(obj: Any, buffer: bytearray, seen: set[int], depth: int) -> 
         return
     seen.add(marker)
     try:
-        # Equal mappings compare equal regardless of insertion order, so the key
-        # should follow suit.
+        # 相等的映射无论插入顺序如何都应相等，键的编码也应如此。
         parts = sorted(
             (_sub(key, seen, depth + 1), _sub(value, seen, depth + 1))
             for key, value in obj.items()
@@ -173,10 +182,10 @@ def _encode_mapping(obj: Any, buffer: bytearray, seen: set[int], depth: int) -> 
 
 
 def _encode_reduced(obj: Any, buffer: bytearray, seen: set[int], depth: int) -> None:
-    """Encode an arbitrary object through its pickle reduction.
+    """通过 pickle 归约结果编码任意对象。
 
-    Recursing into the reduction rather than pickling it directly means nested
-    sets and mappings get the same canonical treatment as top-level ones.
+    递归处理归约结果而非直接 pickle 它，可以让嵌套的 set/mapping
+    获得与顶层对象一致的规范化处理。
     """
     kind = type(obj)
     reduce_ex = getattr(obj, "__reduce_ex__", None)
@@ -186,7 +195,7 @@ def _encode_reduced(obj: Any, buffer: bytearray, seen: set[int], depth: int) -> 
         )
     try:
         reduced = reduce_ex(PICKLE_PROTOCOL)
-    except Exception as exc:  # unpicklable: locks, file handles, lambdas, ...
+    except Exception as exc:  # 不可 pickle：锁、文件句柄、lambda 等
         raise UnstableKeyError(
             f"cannot derive a stable cache key from {_qualified_name(kind)!r}: {exc}"
         ) from exc
@@ -199,7 +208,7 @@ def _encode_reduced(obj: Any, buffer: bytearray, seen: set[int], depth: int) -> 
     try:
         _tagged(buffer, b"T", _qualified_name(kind).encode("utf-8"))
         if isinstance(reduced, str):
-            # Pickled by name, e.g. a module-level singleton.
+            # 按名称 pickle 的情况，例如模块级单例。
             _tagged(buffer, b"q", reduced.encode("utf-8"))
         else:
             _encode(tuple(reduced), buffer, seen, depth + 1)

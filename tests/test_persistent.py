@@ -12,7 +12,7 @@ from farcache import DiskCache, PickleCache, disk_cache, pkl_cache
 
 
 class PersistentCacheTestCase(unittest.TestCase):
-    """Base for tests that run against both persistent backends."""
+    """针对两种持久化后端的测试基类。"""
 
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -102,7 +102,7 @@ class CallSemanticsTest(PersistentCacheTestCase):
                 self.assertEqual(calls, [3, 1])
 
     def test_survives_a_new_decorator_instance(self):
-        """Entries must be readable by a fresh process, i.e. a fresh instance."""
+        """条目必须能被新进程（即全新的装饰器实例）读取到。"""
         for factory in (pkl_cache, disk_cache):
             with self.subTest(factory=factory.__name__):
                 directory = self.path(factory.__name__)
@@ -454,7 +454,7 @@ class DiskBackendTest(PersistentCacheTestCase):
         self.assertTrue(os.path.exists(cache_dir))
 
     def test_derived_directories_are_per_function(self):
-        """One decorator instance may be reused; it must not latch onto the first."""
+        """同一个装饰器实例可能被复用；不能只认第一个函数的目录。"""
         decorator = DiskCache("key", cache_dir=None)
         self.addCleanup(decorator.close)
 

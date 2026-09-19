@@ -223,7 +223,7 @@ def search(query):
 | `is_cache` | `str` | `"cache"` | 控制是否启用缓存的参数名 |
 | `expire` | `float \| None` | `None` | 过期时间（秒），`None` 表示永不过期 |
 | `max_entries` | `int \| None` | `None` | 条目数软上限，按写入时间淘汰最旧的 |
-| `printf` | `bool` | `False` | 兼容选项，额外把缓存事件打到 stdout |
+| `printf` | `bool` | `False` | 兼容选项，额外通过 `farlog` 以 INFO 级别记录缓存事件 |
 
 ```python
 @pkl_cache(cache_key="filepath", expire=7 * 86400, max_entries=10_000)
@@ -239,12 +239,12 @@ def parse_file(filepath):
 
 ### 日志
 
-缓存命中与写入以 DEBUG 级别记录到 `farcache` logger：
+缓存命中与写入通过 [`farlog`](https://pypi.org/project/farlog/) 记录到名为 `farcache` 的 logger（默认 INFO 级别，按天轮转写入 `logs/farcache.log`）。需要看到命中/写入明细时调高级别：
 
 ```python
-import logging
+from farlog import get_logger
 
-logging.getLogger("farcache").setLevel(logging.DEBUG)
+get_logger("farcache", level="DEBUG")
 ```
 
 ## 其他

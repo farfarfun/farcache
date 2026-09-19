@@ -1,15 +1,14 @@
-"""Shared machinery for the parameter-keyed persistent caches.
+"""按参数键控的持久化缓存的共享机制。
 
-``PickleCache`` and ``DiskCache`` differ only in where bytes land, so signature
-validation, key derivation, the ``is_cache`` escape hatch, sync/async wrapping
-and the introspection API all live here. Backends implement :class:`CacheStore`.
+``PickleCache`` 与 ``DiskCache`` 仅在字节落地位置上有差异，签名校验、键推导、
+``is_cache`` 逃生舱、同步/异步包装以及内省 API 都放在这里。后端实现
+:class:`CacheStore`。
 """
 
 from __future__ import annotations
 
 import functools
 import inspect
-import logging
 import threading
 from collections.abc import Callable, Iterable
 from typing import (
@@ -20,6 +19,8 @@ from typing import (
     cast,
 )
 
+from farlog import get_logger
+
 from ._keys import UnstableKeyError, key_digest
 from ._utils import bind_args, namespace_of
 
@@ -28,7 +29,7 @@ R = TypeVar("R")
 
 __all__ = ["MISSING", "CacheStore", "CachedFunction", "FunctionCache"]
 
-logger = logging.getLogger("farcache")
+logger = get_logger("farcache")
 
 
 class _Missing:
@@ -41,43 +42,43 @@ class _Missing:
         return False
 
 
-#: Sentinel for "not in the cache". ``None`` is a cacheable value, so it cannot
-#: double as the miss marker.
+#: 表示"不在缓存中"的哨兵值。``None`` 本身是可缓存的合法值，
+#: 不能兼职当作未命中标记。
 MISSING: Any = _Missing()
 
 
 class CacheStore(Protocol):
-    """Backing store for a single decorated function."""
+    """单个被装饰函数的后端存储。"""
 
     def get(self, digest: str) -> Any:
-        """Return the stored value, or :data:`MISSING`."""
+        """返回已存储的值，或 :data:`MISSING`。"""
 
     def set(self, digest: str, value: Any) -> None: ...
 
     def delete(self, digest: str) -> bool:
-        """Remove one entry; return whether it existed."""
+        """删除一条记录；返回它此前是否存在。"""
 
     def clear(self) -> int:
-        """Remove every entry; return how many were removed."""
+        """删除所有记录；返回删除的数量。"""
 
     def prune(self) -> int:
-        """Remove expired entries; return how many were removed."""
+        """删除已过期的记录；返回删除的数量。"""
 
     def close(self) -> None: ...
 
 
 class CachedFunction(Protocol[P, R]):
-    """A decorated function, plus the cache-control API attached to it."""
+    """一个被装饰的函数，附带挂在它身上的缓存控制 API。"""
 
     __wrapped__: Callable[P, R]
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
 
     def cache_key(self, *args: P.args, **kwargs: P.kwargs) -> str | None:
-        """Digest the given call would use, or ``None`` if it bypasses caching."""
+        """返回给定调用会使用的摘要；若该调用会绕过缓存则返回 ``None``。"""
 
     def cache_invalidate(self, *args: P.args, **kwargs: P.kwargs) -> bool:
-        """Drop the entry for the given call; return whether one existed."""
+        """删除给定调用对应的条目；返回它此前是否存在。"""
 
     def cache_clear(self) -> int: ...
 
@@ -87,7 +88,7 @@ class CachedFunction(Protocol[P, R]):
 
 
 class _FunctionState:
-    """Per-decorated-function state: lazily built store, created once."""
+    """单个被装饰函数的状态：惰性构建的存储，只创建一次。"""
 
     def __init__(self, owner: FunctionCache, prepared: Any) -> None:
         self._owner = owner
@@ -138,12 +139,11 @@ def _reject_unsupported(func: Callable[..., Any]) -> None:
 
 
 class FunctionCache:
-    """Base class for caches keyed on a subset of a function's parameters.
+    """按函数部分参数键控的缓存的基类。
 
     Args:
-        cache_key: Parameter name, sequence of parameter names, or ``None`` to
-            key on every argument.
-        is_cache: Name of a parameter that toggles caching per call.
+        cache_key: 参数名、参数名序列，或 ``None`` 表示以全部参数为键。
+        is_cache: 用于逐次调用开关缓存的参数名。
     """
 
     def __init__(
@@ -157,23 +157,23 @@ class FunctionCache:
         self._states: list[_FunctionState] = []
         self._states_lock = threading.Lock()
 
-    # -- backend hooks ----------------------------------------------------
+    # -- 后端钩子 ----------------------------------------------------
 
     def _prepare(self, func: Callable[..., Any]) -> Any:
-        """Resolve per-function configuration at decoration time (no I/O)."""
+        """在装饰时解析每个函数的专属配置（不做 I/O）。"""
         return None
 
     def _create_store(self, prepared: Any) -> CacheStore:
-        """Open the backing store. Called once, on the first cached call."""
+        """打开后端存储。只在第一次被缓存调用时调用一次。"""
         raise NotImplementedError
 
     def _report(self, event: str, func: Callable[..., Any]) -> None:
-        logger.debug("%s for %s", event, namespace_of(func))
+        logger.debug("{} for {}", event, namespace_of(func))
 
-    # -- public API -------------------------------------------------------
+    # -- 公开 API -------------------------------------------------------
 
     def close(self) -> None:
-        """Release every store this decorator opened."""
+        """释放这个装饰器打开过的每一个存储。"""
         with self._states_lock:
             states = list(self._states)
         for state in states:
@@ -203,14 +203,14 @@ class FunctionCache:
             self._states.append(state)
 
         def digest_for(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str | None:
-            """Digest for this call, or None when the call must bypass the cache."""
+            """返回本次调用的摘要；若本次调用应绕过缓存则返回 None。"""
             bound = bind_args(signature, args, kwargs)
 
             if not bound.get(self.is_cache, True):
                 return None
 
             if key_names is None:
-                # Toggling caching must not change where a result is stored.
+                # 切换是否缓存不应改变结果的存储位置。
                 material: Any = {
                     name: value
                     for name, value in bound.items()
@@ -218,7 +218,7 @@ class FunctionCache:
                 }
             else:
                 material = [bound[name] for name in key_names]
-                # A None key is the documented "nothing to key on" escape hatch.
+                # None 键是文档规定的"无键可用"逃生舱。
                 if any(value is None for value in material):
                     return None
 
@@ -226,16 +226,15 @@ class FunctionCache:
                 return key_digest(namespace, material)
             except UnstableKeyError:
                 if key_names is not None:
-                    # The parameter was nominated explicitly; failing silently
-                    # would turn a typo into a permanent cache miss.
+                    # 该参数是显式指定的；静默失败会把一次拼写错误
+                    # 变成永久的缓存未命中。
                     raise
                 if not state.warned:
                     state.warned = True
-                    logger.warning(
-                        "%s: arguments are not reproducibly hashable, caching "
+                    logger.opt(exception=True).warning(
+                        "{}: arguments are not reproducibly hashable, caching "
                         "disabled for this function",
                         namespace,
-                        exc_info=True,
                     )
                 return None
 

@@ -87,7 +87,7 @@ class MemoryCacheTest(unittest.TestCase):
                 self.assertEqual(calls, [2])
 
     def test_vttl_honours_its_ttl_argument(self):
-        """Regression: the ttl used to reach the constructor, where it was ignored."""
+        """回归测试：ttl 曾经被传给构造函数，在那里被忽略。"""
 
         @vttl_cache(maxsize=8, ttl=30)
         def load(key):

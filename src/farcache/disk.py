@@ -1,4 +1,4 @@
-"""SQLite-backed function cache, built on :mod:`diskcache`."""
+"""基于 :mod:`diskcache` 的 SQLite 缓存后端。"""
 
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ _DEFAULT_ROOT = ".disk_cache"
 
 
 class DiskStore(CacheStore):
-    """Adapter over :class:`diskcache.Cache`.
+    """对 :class:`diskcache.Cache` 的适配器。
 
-    Keys reaching this layer are already digests, so diskcache stores plain
-    strings and never has to pickle a key itself.
+    到达这一层的键已经是摘要，因此 diskcache 只需存储普通字符串，
+    不需要再自己 pickle 一次键。
     """
 
     def __init__(
@@ -54,19 +54,17 @@ class DiskStore(CacheStore):
 
 
 class DiskCache(FunctionCache):
-    """Cache function results in a :mod:`diskcache` store.
+    """将函数结果缓存到 :mod:`diskcache` 存储中。
 
     Args:
-        cache_key: Parameter name, sequence of parameter names, or ``None`` to
-            key on every argument.
-        cache_dir: Directory for the cache. Derived from the function's identity
-            when ``None``. Relative paths are resolved once, at decoration time.
-        is_cache: Name of a parameter that toggles caching per call.
-        expire: Entry lifetime in seconds; ``None`` means never expire.
-        size_limit: Cap on total stored bytes, enforced by diskcache's own
-            eviction policy.
-        settings: Further keyword arguments forwarded to :class:`diskcache.Cache`
-            (``eviction_policy``, ``cull_limit``, ``tag_index``, ...).
+        cache_key: 参数名、参数名序列，或 ``None`` 表示以全部参数为键。
+        cache_dir: 缓存目录；为 ``None`` 时由函数身份派生。相对路径在
+            装饰时解析一次。
+        is_cache: 用于逐次调用开关缓存的参数名。
+        expire: 条目存活时间（秒）；``None`` 表示永不过期。
+        size_limit: 已存字节数上限，由 diskcache 自身的淘汰策略保证。
+        settings: 透传给 :class:`diskcache.Cache` 的其余关键字参数
+            （``eviction_policy``、``cull_limit``、``tag_index`` 等）。
     """
 
     def __init__(
@@ -88,8 +86,8 @@ class DiskCache(FunctionCache):
     def _prepare(self, func: Callable[..., Any]) -> str:
         directory = self.cache_dir
         if directory is None:
-            # Derived, not stored on self: one decorator instance may be applied
-            # to several functions, and each needs its own directory.
+            # 现算而不存到 self 上：同一个装饰器实例可能应用到多个函数，
+            # 每个函数都需要自己的目录。
             uid = sha256(namespace_of(func).encode("utf-8")).hexdigest()[:16]
             name = getattr(func, "__name__", "func")
             directory = os.path.join(_DEFAULT_ROOT, f"{uid}-{name}")
@@ -107,7 +105,19 @@ def disk_cache(
     size_limit: int | None = None,
     **settings: Any,
 ) -> DiskCache:
-    """Convenience factory for :class:`DiskCache`."""
+    """:class:`DiskCache` 的便捷工厂函数。
+
+    Args:
+        cache_key: 参数名、参数名序列，或 ``None`` 表示以全部参数为键。
+        cache_dir: 缓存目录；为 ``None`` 时由函数身份派生。
+        is_cache: 用于逐次调用开关缓存的参数名。
+        expire: 条目存活时间（秒）；``None`` 表示永不过期。
+        size_limit: 已存字节数上限。
+        settings: 透传给 :class:`diskcache.Cache` 的其余关键字参数。
+
+    Returns:
+        新建的 :class:`DiskCache` 实例。
+    """
     return DiskCache(
         cache_key=cache_key,
         cache_dir=cache_dir,

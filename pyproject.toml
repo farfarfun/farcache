@@ -1,15 +1,15 @@
 [build-system]
-requires = [ "setuptools>=61",]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "farcache"
-version = "2.0.3"
+version = "2.0.4"
 description = "Lightweight function caching decorators for memory and disk"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = [ "cache", "caching", "decorator", "memoize", "lru", "ttl", "diskcache", "pickle",]
-dependencies = [ "cachebox>=5.0.1,<6", "diskcache>=5.6.3,<6",]
+dependencies = [ "cachebox>=5.0.1,<6", "diskcache>=5.6.3,<6", "farlog>=1.1.7",]
 classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3 :: Only", "Topic :: Software Development :: Libraries :: Python Modules", "Typing :: Typed"]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -36,10 +36,8 @@ email = "niuliangtao@qq.com"
 [[project.maintainers]]
 name = "farfarfun"
 email = "farfarfun@qq.com"
-[tool.setuptools]
-
-[tool.setuptools.package-data]
-farcache = [ "py.typed",]
+[tool.hatch.build.targets.wheel]
+packages = ["src/farcache"]
 
 [tool.ruff]
 target-version = "py310"
@@ -65,7 +63,7 @@ files = [ "src",]
 strict = true
 
 [[tool.mypy.overrides]]
-module = [ "cachebox.*", "diskcache.*",]
+module = [ "cachebox.*", "diskcache.*", "farlog.*",]
 ignore_missing_imports = true
 
 [tool.coverage.run]

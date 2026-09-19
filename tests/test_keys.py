@@ -28,7 +28,7 @@ def module_level_function():
 
 class KeyStabilityTest(unittest.TestCase):
     def test_unordered_containers_survive_hash_randomisation(self):
-        """The bug that motivated this module: set keys used to differ per run."""
+        """催生本模块的那个 bug：set 类型的键过去在每次运行时都不同。"""
         script = textwrap.dedent(
             """
             from farcache._keys import key_digest

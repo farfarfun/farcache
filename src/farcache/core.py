@@ -1,4 +1,4 @@
-"""Pickle-file backed function cache."""
+"""基于 pickle 文件的函数缓存。"""
 
 from __future__ import annotations
 
@@ -12,26 +12,28 @@ from collections.abc import Callable, Iterable
 from functools import cached_property
 from typing import Any
 
+from farlog import get_logger
+
 from ._base import MISSING, CacheStore, FunctionCache
 from ._keys import PICKLE_PROTOCOL
 from ._utils import namespace_of
 
 __all__ = ["PickleCache", "PickleStore", "cached_property", "pkl_cache"]
 
+logger = get_logger("farcache")
+
 _SUFFIX = ".pkl"
 
-#: Trimming to ``max_entries`` needs a directory scan, so amortise it over
-#: several writes instead of paying for it on every store.
+#: 按 max_entries 裁剪需要扫描目录，摊到多次写入里做，而不是每次写入都付出这个代价。
 _TRIM_INTERVAL = 256
 
 
 class PickleStore(CacheStore):
-    """One pickle file per entry, written atomically.
+    """每个条目一个 pickle 文件，原子写入。
 
-    Files are sharded into 256 subdirectories by digest prefix, so a large cache
-    does not degrade into a single huge directory. Each file holds two pickles:
-    the expiry stamp first, then the value, which lets expiry be checked without
-    deserialising the payload.
+    文件按摘要前缀分片到 256 个子目录，避免大缓存退化成单个巨大目录。
+    每个文件保存两个 pickle 对象：先是过期时间戳，再是值，这样检查是否
+    过期时不需要反序列化整个值。
     """
 
     def __init__(
@@ -69,8 +71,8 @@ class PickleStore(CacheStore):
         except FileNotFoundError:
             return MISSING
         except Exception:
-            # Truncated, half-written by an older version, or referencing a
-            # class that has since been renamed: drop it and recompute.
+            # 文件被截断、由旧版本半途写入，或引用了后来被改名的类：
+            # 直接丢弃并重新计算。
             self._unlink(path)
             return MISSING
 
@@ -89,7 +91,7 @@ class PickleStore(CacheStore):
                 pickle.dump(expires_at, handle, protocol=PICKLE_PROTOCOL)
                 pickle.dump(value, handle, protocol=PICKLE_PROTOCOL)
             os.replace(temp_path, path)
-            temp_path = None  # consumed by the rename
+            temp_path = None  # 已被 rename 消费
         finally:
             if temp_path is not None:
                 with contextlib.suppress(OSError):
@@ -108,7 +110,7 @@ class PickleStore(CacheStore):
         return removed
 
     def prune(self) -> int:
-        """Drop expired entries, then trim to ``max_entries`` oldest-first."""
+        """丢弃已过期条目，再按 max_entries 从最旧的开始裁剪。"""
         now = time.time()
         live: list[tuple[float, str]] = []
         removed = 0
@@ -121,7 +123,7 @@ class PickleStore(CacheStore):
                 live.append((mtime, path))
 
         if self.max_entries is not None and len(live) > self.max_entries:
-            live.sort()  # oldest mtime first
+            live.sort()  # 按 mtime 从旧到新排序
             for _, path in live[: len(live) - self.max_entries]:
                 removed += self._unlink(path)
 
@@ -129,9 +131,9 @@ class PickleStore(CacheStore):
         return removed
 
     def close(self) -> None:
-        """No persistent handles are held; present for interface symmetry."""
+        """本实现不持有任何长驻句柄；仅为满足接口对称性而存在。"""
 
-    # -- internals --------------------------------------------------------
+    # -- 内部实现 --------------------------------------------------------
 
     def _shards(self) -> Iterable[str]:
         try:
@@ -139,8 +141,8 @@ class PickleStore(CacheStore):
         except OSError:
             return
         for name in names:
-            # Only ever touch our own shard directories: cache_dir may be shared
-            # with unrelated files, and clear() must not become "rm -rf".
+            # 只处理属于自己的分片目录：cache_dir 可能与无关文件共享，
+            # clear() 不能变成 "rm -rf"。
             if len(name) == 2 and all(c in "0123456789abcdef" for c in name):
                 path = os.path.join(self.directory, name)
                 if os.path.isdir(path):
@@ -158,7 +160,7 @@ class PickleStore(CacheStore):
 
     @staticmethod
     def _header(path: str) -> tuple[Any, float]:
-        """Return ``(expires_at, mtime)``; ``expires_at`` is MISSING if unreadable."""
+        """返回 ``(expires_at, mtime)``；不可读时 ``expires_at`` 为 MISSING。"""
         try:
             mtime = os.stat(path).st_mtime
             with open(path, "rb") as handle:
@@ -186,19 +188,18 @@ class PickleStore(CacheStore):
 
 
 class PickleCache(FunctionCache):
-    """Cache function results as pickle files on disk.
+    """将函数结果以 pickle 文件形式缓存到磁盘。
 
     Args:
-        cache_key: Parameter name, sequence of parameter names, or ``None`` to
-            key on every argument.
-        cache_dir: Directory for the cache files. Relative paths are resolved
-            once, at decoration time.
-        is_cache: Name of a parameter that toggles caching per call.
-        expire: Entry lifetime in seconds; ``None`` means never expire.
-        max_entries: Soft cap on stored entries, enforced periodically and by
-            :meth:`~farcache.CachedFunction.cache_prune`. ``None`` is unbounded.
-        printf: Legacy flag; also echoes cache events to stdout. Prefer
-            configuring the ``farcache`` logger.
+        cache_key: 参数名、参数名序列，或 ``None`` 表示以全部参数为键。
+        cache_dir: 缓存文件所在目录，相对路径在装饰时解析一次。
+        is_cache: 用于逐次调用开关缓存的参数名。
+        expire: 条目存活时间（秒）；``None`` 表示永不过期。
+        max_entries: 已存条目数的软上限，由后台裁剪与
+            :meth:`~farcache.CachedFunction.cache_prune` 共同保证；
+            ``None`` 表示不限制。
+        printf: 兼容旧版的开关，开启后额外通过 ``farlog`` 记录缓存事件
+            （不再直接输出到 stdout）。
     """
 
     def __init__(
@@ -225,7 +226,7 @@ class PickleCache(FunctionCache):
     def _report(self, event: str, func: Callable[..., Any]) -> None:
         super()._report(event, func)
         if self.printf:
-            print(f"{event} for function {namespace_of(func)!r}")
+            logger.info("{} for function {!r}", event, namespace_of(func))
 
 
 def pkl_cache(
@@ -236,7 +237,19 @@ def pkl_cache(
     max_entries: int | None = None,
     printf: bool = False,
 ) -> PickleCache:
-    """Convenience factory for :class:`PickleCache`."""
+    """:class:`PickleCache` 的便捷工厂函数。
+
+    Args:
+        cache_key: 参数名、参数名序列，或 ``None`` 表示以全部参数为键。
+        cache_dir: 缓存文件所在目录。
+        is_cache: 用于逐次调用开关缓存的参数名。
+        expire: 条目存活时间（秒）；``None`` 表示永不过期。
+        max_entries: 已存条目数的软上限；``None`` 表示不限制。
+        printf: 兼容旧版的开关，开启后额外通过 ``farlog`` 记录缓存事件。
+
+    Returns:
+        新建的 :class:`PickleCache` 实例。
+    """
     return PickleCache(
         cache_key=cache_key,
         cache_dir=cache_dir,
