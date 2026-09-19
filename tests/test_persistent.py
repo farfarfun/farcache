@@ -1,12 +1,11 @@
-import contextlib
 import inspect
-import io
 import os
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from farcache import DiskCache, PickleCache, disk_cache, pkl_cache
 
@@ -205,10 +204,14 @@ class KeySelectionTest(PersistentCacheTestCase):
                     calls[0] += 1
                     return "ok"
 
-                with open(os.devnull) as handle:
-                    with self.assertLogs("farcache", level="WARNING"):
-                        self.assertEqual(load(handle), "ok")
+                with (
+                    open(os.devnull) as handle,
+                    mock.patch("farcache._base.logger") as logger,
+                ):
                     self.assertEqual(load(handle), "ok")
+                    self.assertEqual(load(handle), "ok")
+                logger.opt.assert_called_once_with(exception=True)
+                logger.opt.return_value.warning.assert_called_once()
                 self.assertEqual(calls, [2])
 
 
@@ -417,7 +420,7 @@ class PickleBackendTest(PersistentCacheTestCase):
         survivors = {path.stem for path in store_dir.rglob("*.pkl")}
         self.assertEqual(survivors, {load.cache_key(i) for i in range(15, 20)})
 
-    def test_events_are_logged_and_optionally_printed(self):
+    def test_events_use_farlog_instead_of_print(self):
         decorator = PickleCache("key", cache_dir=self.directory, printf=True)
         self.addCleanup(decorator.close)
 
@@ -425,16 +428,17 @@ class PickleBackendTest(PersistentCacheTestCase):
         def load(key):
             return key
 
-        stdout = io.StringIO()
         with (
-            self.assertLogs("farcache", level="DEBUG") as logged,
-            contextlib.redirect_stdout(stdout),
+            mock.patch("farcache._base.logger") as debug_logger,
+            mock.patch("farcache.core.logger") as info_logger,
+            mock.patch("builtins.print") as printer,
         ):
             load("a")
             load("a")
 
-        self.assertTrue(any("Cache hit" in line for line in logged.output))
-        self.assertIn("Cache hit", stdout.getvalue())
+        debug_logger.debug.assert_any_call("{} for {}", "Cache hit", mock.ANY)
+        info_logger.info.assert_any_call("{} for function {!r}", "Cache hit", mock.ANY)
+        printer.assert_not_called()
 
 
 class DiskBackendTest(PersistentCacheTestCase):
