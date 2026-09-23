@@ -1,4 +1,4 @@
-"""Lightweight function caching decorators for memory and disk."""
+"""提供内存和磁盘函数缓存装饰器。"""
 
 from importlib.metadata import PackageNotFoundError, version
 
@@ -23,7 +23,7 @@ except PackageNotFoundError:  # running from a source tree without an install
 
 __all__ = [
     "__version__",
-    # memory
+    # 内存缓存
     "cache",
     "lru_cache",
     "ttl_cache",
@@ -31,14 +31,14 @@ __all__ = [
     "lfu_cache",
     "fifo_cache",
     "rr_cache",
-    # disk
+    # 磁盘缓存
     "PickleCache",
     "PickleStore",
     "pkl_cache",
     "DiskCache",
     "DiskStore",
     "disk_cache",
-    # shared
+    # 共享类型
     "CacheStore",
     "CachedFunction",
     "FunctionCache",

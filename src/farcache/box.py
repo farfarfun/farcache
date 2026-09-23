@@ -62,37 +62,75 @@ def cache(func: F, /) -> F:
 
 
 def lru_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE) -> Any:
-    """LRUCache：移除缓存中自上次访问以来时间最长的元素。"""
+    """创建 LRU 缓存装饰器。
+
+    Args:
+        maxsize: 最大缓存数量，或直接传入待装饰函数；默认 1000。
+    Returns:
+        缓存装饰器，或裸用时返回包装函数。
+    """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
     return _apply(LRUCache(maxsize=size), maxsize)
 
 
 def lfu_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE) -> Any:
-    """LFUCache：移除缓存中访问次数最少的元素，不论其访问时间。"""
+    """创建 LFU 缓存装饰器，优先移除访问次数最少的元素。
+
+    Args:
+        maxsize: 最大缓存数量，或直接传入待装饰函数；默认 1000。
+    Returns:
+        缓存装饰器，或裸用时返回包装函数。
+    """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
     return _apply(LFUCache(maxsize=size), maxsize)
 
 
 def fifo_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE) -> Any:
-    """FIFOCache：移除在缓存中停留时间最长的元素。"""
+    """创建 FIFO 缓存装饰器。
+
+    Args:
+        maxsize: 最大缓存数量，或直接传入待装饰函数；默认 1000。
+    Returns:
+        缓存装饰器，或裸用时返回包装函数。
+    """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
     return _apply(FIFOCache(maxsize=size), maxsize)
 
 
 def rr_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE) -> Any:
-    """RRCache：在必要时随机选择一个元素进行移除，以腾出空间。"""
+    """创建随机淘汰缓存装饰器。
+
+    Args:
+        maxsize: 最大缓存数量，或直接传入待装饰函数；默认 1000。
+    Returns:
+        缓存装饰器，或裸用时返回包装函数。
+    """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
     return _apply(RRCache(maxsize=size), maxsize)
 
 
 def ttl_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE, ttl: float = DEFAULT_TTL) -> Any:
-    """TTLCache：自动移除已过期的缓存元素。"""
+    """创建按固定存活时间淘汰的缓存装饰器。
+
+    Args:
+        maxsize: 最大缓存数量，或直接传入待装饰函数；默认 1000。
+        ttl: 每个缓存项的存活秒数，默认 60。
+    Returns:
+        缓存装饰器，或裸用时返回包装函数。
+    """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
     return _apply(TTLCache(maxsize=size, ttl=ttl), maxsize)
 
 
 def vttl_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE, ttl: float = DEFAULT_TTL) -> Any:
-    """VTTLCache：在访问时才惰性移除已过期的缓存元素。"""
+    """创建访问时惰性淘汰过期项的缓存装饰器。
+
+    Args:
+        maxsize: 最大缓存数量，或直接传入待装饰函数；默认 1000。
+        ttl: 每个缓存项的存活秒数，默认 60。
+    Returns:
+        缓存装饰器，或裸用时返回包装函数。
+    """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
     store: VTTLCache[Any, Any] = VTTLCache(maxsize=size)
 

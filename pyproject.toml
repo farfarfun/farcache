@@ -42,19 +42,20 @@ packages = ["src/farcache"]
 [tool.ruff]
 target-version = "py310"
 src = [ "src",]
-# README snippets are illustrative; the formatter collapses them into shapes
-# that read worse as documentation.
+# README 示例仅用于说明；格式化器会将其压缩成不利于阅读的形式。
 extend-exclude = [ "*.md",]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
 
 [tool.ruff.lint]
 select = [ "E", "F", "I", "UP", "B", "SIM", "RUF",]
-# RUF001-003: the policy docstrings are bilingual, full-width CJK punctuation
-# is intended. RUF022: __all__ is grouped by backend rather than sorted.
+# RUF001-003：规范 docstring 为双语，全角中文标点是有意使用的。
+# RUF022：__all__ 按后端分组，而不是按字母排序。
 ignore = [ "RUF001", "RUF002", "RUF003", "RUF022",]
 
 [tool.ruff.lint.per-file-ignores]
-# The subTest closures are defined and called inside the same iteration, so
-# late binding cannot bite.
+# subTest 闭包在同一轮迭代内定义并调用，不会受到延迟绑定影响。
 "tests/**" = [ "B023",]
 
 [tool.mypy]
