@@ -239,7 +239,7 @@ def parse_file(filepath):
 
 ### 日志
 
-缓存命中与写入通过 [`farlog`](https://pypi.org/project/farlog/) 记录到名为 `farcache` 的 logger（默认 INFO 级别，按天轮转写入 `logs/farcache.log`）。需要看到命中/写入明细时调高级别：
+缓存命中与写入以 DEBUG 级别发送到 [`farlog`](https://pypi.org/project/farlog/) 中名为 `farcache` 的 logger。`farlog` 默认只记录 INFO 及以上级别，并按天轮转写入 `logs/farcache.log`，因此需要将该 logger 调整为 DEBUG 才能看到命中/写入明细：
 
 ```python
 from farlog import get_logger
