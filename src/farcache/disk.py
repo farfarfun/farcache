@@ -35,21 +35,54 @@ class DiskStore(CacheStore):
         self._cache = Cache(directory, **settings)
 
     def get(self, digest: str) -> Any:
+        """读取 ``digest`` 对应的值。
+
+        Args:
+            digest: 缓存键摘要。
+
+        Returns:
+            已存储的值；条目不存在或已过期时返回 :data:`~farcache.MISSING`。
+        """
         return self._cache.get(digest, default=MISSING)
 
     def set(self, digest: str, value: Any) -> None:
+        """写入 ``digest`` 对应的值，按 ``expire`` 设置过期时间。
+
+        Args:
+            digest: 缓存键摘要。
+            value: 要存储的值；已存在同一摘要时覆盖。
+        """
         self._cache.set(digest, value, expire=self.expire)
 
     def delete(self, digest: str) -> bool:
+        """删除 ``digest`` 对应的条目。
+
+        Args:
+            digest: 缓存键摘要。
+
+        Returns:
+            该条目此前是否存在。
+        """
         return bool(self._cache.delete(digest))
 
     def clear(self) -> int:
+        """清空本存储的全部条目。
+
+        Returns:
+            删除的条目数。
+        """
         return int(self._cache.clear())
 
     def prune(self) -> int:
+        """删除已过期的条目。
+
+        Returns:
+            删除的条目数。
+        """
         return int(self._cache.expire())
 
     def close(self) -> None:
+        """关闭底层 SQLite 连接。关闭后由上层在下次调用时重新打开存储。"""
         self._cache.close()
 
 

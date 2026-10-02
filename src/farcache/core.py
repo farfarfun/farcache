@@ -60,6 +60,17 @@ class PickleStore(CacheStore):
             return False
 
     def get(self, digest: str) -> Any:
+        """读取 ``digest`` 对应的值。
+
+        已过期或无法反序列化（截断、半途写入、类被改名）的文件会被顺手删除。
+
+        Args:
+            digest: 缓存键摘要。
+
+        Returns:
+            已存储的值；条目不存在、已过期或已损坏时返回
+            :data:`~farcache.MISSING`。
+        """
         path = self._path(digest)
         try:
             with open(path, "rb") as handle:
@@ -77,6 +88,15 @@ class PickleStore(CacheStore):
             return MISSING
 
     def set(self, digest: str, value: Any) -> None:
+        """写入 ``digest`` 对应的值。
+
+        先写临时文件再 :func:`os.replace`，保证读到的文件总是完整的。写入
+        次数累积到阈值后会顺带做一次 :meth:`prune`。
+
+        Args:
+            digest: 缓存键摘要。
+            value: 要存储的值；已存在同一摘要时覆盖。
+        """
         path = self._path(digest)
         shard = os.path.dirname(path)
         os.makedirs(shard, exist_ok=True)
@@ -100,9 +120,24 @@ class PickleStore(CacheStore):
         self._maybe_trim()
 
     def delete(self, digest: str) -> bool:
+        """删除 ``digest`` 对应的条目。
+
+        Args:
+            digest: 缓存键摘要。
+
+        Returns:
+            该条目此前是否存在。
+        """
         return self._unlink(self._path(digest))
 
     def clear(self) -> int:
+        """清空本存储写入的条目。
+
+        只处理自己的分片目录与 ``.pkl`` 文件，不会动缓存目录下的其他内容。
+
+        Returns:
+            删除的条目数。
+        """
         removed = 0
         for path in self._entries():
             removed += self._unlink(path)
@@ -110,7 +145,11 @@ class PickleStore(CacheStore):
         return removed
 
     def prune(self) -> int:
-        """丢弃已过期条目，再按 max_entries 从最旧的开始裁剪。"""
+        """丢弃已过期条目，再按 ``max_entries`` 从最旧的开始裁剪。
+
+        Returns:
+            删除的条目数（过期与裁剪之和）。
+        """
         now = time.time()
         live: list[tuple[float, str]] = []
         removed = 0

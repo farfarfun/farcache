@@ -53,7 +53,8 @@ class CacheStore(Protocol):
     def get(self, digest: str) -> Any:
         """返回已存储的值，或 :data:`MISSING`。"""
 
-    def set(self, digest: str, value: Any) -> None: ...
+    def set(self, digest: str, value: Any) -> None:
+        """写入一条记录，已存在同一摘要时覆盖。"""
 
     def delete(self, digest: str) -> bool:
         """删除一条记录；返回它此前是否存在。"""
@@ -64,7 +65,8 @@ class CacheStore(Protocol):
     def prune(self) -> int:
         """删除已过期的记录；返回删除的数量。"""
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        """释放底层句柄。关闭后再次调用会由上层重新打开存储。"""
 
 
 class CachedFunction(Protocol[P, R]):
