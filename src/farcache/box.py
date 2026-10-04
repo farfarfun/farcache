@@ -57,7 +57,13 @@ def _apply(policy: Any, maxsize: _MaybeFunc) -> Any:
 
 
 def cache(func: F, /) -> F:
-    """LRU 缓存，默认 maxsize 为 1000，裸用（不带参数）。"""
+    """为函数应用默认容量的 LRU 缓存。
+
+    Args:
+        func: 待缓存的函数。
+    Returns:
+        保留原函数调用签名的缓存包装函数。
+    """
     return cached(LRUCache(maxsize=DEFAULT_MAXSIZE))(func)
 
 

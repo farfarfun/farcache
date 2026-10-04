@@ -82,11 +82,17 @@ class CachedFunction(Protocol[P, R]):
     def cache_invalidate(self, *args: P.args, **kwargs: P.kwargs) -> bool:
         """删除给定调用对应的条目；返回它此前是否存在。"""
 
-    def cache_clear(self) -> int: ...
+    def cache_clear(self) -> int:
+        """删除此函数的全部缓存记录；返回删除的记录数量。"""
+        ...
 
-    def cache_prune(self) -> int: ...
+    def cache_prune(self) -> int:
+        """删除此函数已过期的缓存记录；返回删除的记录数量。"""
+        ...
 
-    def cache_close(self) -> None: ...
+    def cache_close(self) -> None:
+        """关闭此函数当前的缓存存储；不返回值，后续调用会重新打开存储。"""
+        ...
 
 
 class _FunctionState:
