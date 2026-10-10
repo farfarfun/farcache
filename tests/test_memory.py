@@ -97,6 +97,21 @@ class MemoryCacheTest(unittest.TestCase):
         _, expires_at = load.cache.get_with_expire("a")
         self.assertGreater(expires_at, 0)
 
+    def test_vttl_decorator_reuse_keeps_function_caches_separate(self):
+        decorator = vttl_cache(maxsize=8, ttl=30)
+
+        @decorator
+        def first(value):
+            return f"first:{value}"
+
+        @decorator
+        def second(value):
+            return f"second:{value}"
+
+        self.assertEqual(first("same"), "first:same")
+        self.assertEqual(second("same"), "second:same")
+        self.assertIsNot(first.cache, second.cache)
+
     def test_metadata_is_preserved(self):
         @lru_cache(maxsize=2)
         def documented(value):
