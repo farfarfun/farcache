@@ -138,13 +138,14 @@ def vttl_cache(maxsize: _MaybeFunc = DEFAULT_MAXSIZE, ttl: float = DEFAULT_TTL) 
         缓存装饰器，或裸用时返回包装函数。
     """
     size = DEFAULT_MAXSIZE if callable(maxsize) else maxsize
-    store: VTTLCache[Any, Any] = VTTLCache(maxsize=size)
 
     # VTTLCache 是按每个键单独过期的，所以存活时间要在插入时提供。
     # cachebox 自带的 `cached` 没有对应的钩子，因此这里用显式包装 --
     # 如果把 ttl 传给构造函数，只会作用于种子数据，导致这个装饰器
     # 之后存入的所有条目都悄悄变成永不过期。
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        store: VTTLCache[Any, Any] = VTTLCache(maxsize=size)
+
         if inspect.iscoroutinefunction(func):
 
             @functools.wraps(func)

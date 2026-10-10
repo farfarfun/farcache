@@ -26,7 +26,7 @@ print(fibonacci(50))
 
 ## 内存缓存
 
-基于 [cachebox](https://github.com/awolverp/cachebox) 实现，提供多种淘汰策略。所有装饰器都支持带括号和不带括号两种写法，并且原生支持 `async def` 函数。
+基于 [cachebox](https://github.com/awolverp/cachebox) 实现，提供多种淘汰策略。除 `cache` 只能裸用外，其余装饰器都支持带括号和不带括号两种写法，并且原生支持 `async def` 函数。
 
 包装后的函数暴露底层缓存对象：`f.cache` 可用于 `len(f.cache)` 查看条目数，`f.cache_clear()` 清空。
 
