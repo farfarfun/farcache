@@ -7,10 +7,10 @@ name = "farcache"
 version = "2.0.4"
 description = "轻量的 Python 函数缓存装饰器库，支持内存、磁盘与 Pickle 缓存及异步函数"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 keywords = [ "cache", "caching", "decorator", "memoize", "lru", "ttl", "diskcache", "pickle",]
 dependencies = [ "cachebox>=5.0.1,<6", "diskcache>=5.6.3,<6", "farlog>=1.1.7",]
-classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3 :: Only", "Topic :: Software Development :: Libraries :: Python Modules", "Typing :: Typed"]
+classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3 :: Only", "Topic :: Software Development :: Libraries :: Python Modules", "Typing :: Typed"]
 license = "MIT"
 license-files = ["LICENSE"]
 
